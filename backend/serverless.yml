@@ -1,0 +1,187 @@
+service: ai-fitness-tv-backend
+
+provider:
+  name: aws
+  runtime: nodejs22.x
+  region: us-east-1
+  timeout: 28
+  memorySize: 512
+  httpApi:
+    cors: true
+  environment:
+    USER_TABLE: ${self:service}-user-profile-${sls:stage}
+    LEDGER_TABLE: ${self:service}-workout-ledger-${sls:stage}
+    DEVICE_TABLE: ${self:service}-device-pairing-${sls:stage}
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - bedrock:InvokeModel
+          Resource:
+            - "arn:aws:bedrock:*::foundation-model/*"
+            - "arn:aws:bedrock:*:*:inference-profile/*"
+        - Effect: Allow
+          Action:
+            - aws-marketplace:ViewSubscriptions
+            - aws-marketplace:Subscribe
+          Resource: "*"
+        - Effect: Allow
+          Action:
+            - dynamodb:Query
+            - dynamodb:Scan
+            - dynamodb:GetItem
+            - dynamodb:PutItem
+            - dynamodb:UpdateItem
+          Resource:
+            - "arn:aws:dynamodb:us-east-1:*:table/${self:provider.environment.USER_TABLE}"
+            - "arn:aws:dynamodb:us-east-1:*:table/${self:provider.environment.USER_TABLE}/index/*"
+            - "arn:aws:dynamodb:us-east-1:*:table/${self:provider.environment.LEDGER_TABLE}"
+            - "arn:aws:dynamodb:us-east-1:*:table/${self:provider.environment.LEDGER_TABLE}/index/*"
+            - "arn:aws:dynamodb:us-east-1:*:table/${self:provider.environment.DEVICE_TABLE}"
+
+functions:
+  generateNextWorkout:
+    handler: functions/generateNextWorkout.handler
+    events:
+      - httpApi:
+          path: /workout/next
+          method: get
+
+  baselineStep1:
+    handler: functions/generateNextWorkout.baselineStep1
+    events:
+      - httpApi:
+          path: /workout/baseline/step1
+          method: get
+
+  baselineStep2:
+    handler: functions/generateNextWorkout.baselineStep2
+    events:
+      - httpApi:
+          path: /workout/baseline/step2
+          method: post
+
+  submitWorkoutLedger:
+    handler: functions/submitWorkoutLedger.handler
+    events:
+      - httpApi:
+          path: /workout/ledger
+          method: post
+
+  authGenerate:
+    handler: functions/authApi.generateCode
+    events:
+      - httpApi:
+          path: /auth/code
+          method: get
+
+  authStatus:
+    handler: functions/authApi.checkStatus
+    events:
+      - httpApi:
+          path: /auth/status
+          method: get
+
+  authLink:
+    handler: functions/authApi.simulateMobileLink
+    events:
+      - httpApi:
+          path: /auth/link
+          method: post
+
+  setGoals:
+    handler: functions/authApi.setGoals
+    events:
+      - httpApi:
+          path: /user/goals
+          method: post
+
+  mobileSetupPage:
+    handler: functions/authApi.mobileSetupPage
+    events:
+      - httpApi:
+          path: /mobile/setup
+          method: get
+
+  updateSettings:
+    handler: functions/authApi.updateSettings
+    events:
+      - httpApi:
+          path: /user/settings
+          method: post
+
+  getStats:
+    handler: functions/statsApi.getStats
+    events:
+      - httpApi:
+          path: /user/stats
+          method: get
+  
+  mobileLogin:
+    handler: functions/authApi.mobileLogin
+    events:
+      - httpApi:
+          path: /auth/login
+          method: post
+
+  mobileSignupStep1:
+    handler: functions/authApi.mobileSignupStep1
+    events:
+      - httpApi:
+          path: /auth/signup-step1
+          method: post
+
+  mobileSignupStep2:
+    handler: functions/authApi.mobileSignupStep2
+    events:
+      - httpApi:
+          path: /auth/signup-step2
+          method: post
+
+resources:
+  Resources:
+    UserProfileTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:provider.environment.USER_TABLE}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: userId
+            AttributeType: S
+        KeySchema:
+          - AttributeName: userId
+            KeyType: HASH
+
+    WorkoutLedgerTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:provider.environment.LEDGER_TABLE}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: workoutId
+            AttributeType: S
+          - AttributeName: userId
+            AttributeType: S
+        KeySchema:
+          - AttributeName: workoutId
+            KeyType: HASH
+        GlobalSecondaryIndexes:
+          - IndexName: userIdGlobalIndex
+            KeySchema:
+              - AttributeName: userId
+                KeyType: HASH
+            Projection:
+              ProjectionType: ALL
+
+    DevicePairingTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:provider.environment.DEVICE_TABLE}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: deviceCode
+            AttributeType: S
+        KeySchema:
+          - AttributeName: deviceCode
+            KeyType: HASH

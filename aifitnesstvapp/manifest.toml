@@ -1,0 +1,25 @@
+schema-version = 1
+
+[package]
+title = "AI Fitness TV App"
+version = "0.1.0"
+id = "com.amazondeveloper.aifitnesstv"
+
+[os.version]
+min = "1.2"
+target = "1.2"
+
+[needs]
+[[needs.module]]
+id = "/com.amazon.vega.os@IVega_1_2"
+
+[[needs.module]]
+id = "/com.amazon.kepler.keplerscript_2@IKeplerScript_1"
+
+
+[components]
+[[components.interactive]]
+id = "com.amazondeveloper.aifitnesstv.main"
+runtime-module = "/com.amazon.kepler.keplerscript.runtime.loader_2@IKeplerScript_2_0"
+launch-type = "singleton"
+categories = ["com.amazon.category.main"]
